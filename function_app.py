@@ -16,7 +16,7 @@ BLOB_CONNECTION_STRING = os.getenv("BLOB_CONNECTION_STRING")
 BLOB_CONTAINER_NAME = os.getenv("BLOB_CONTAINER_NAME")
 
 @app.function_name(name="MetAdeemyTimer")
-@app.schedule(schedule="0 0 */12 * * *", arg_name="timer", run_on_startup=True, use_monitor=True)
+@app.schedule(schedule="0 0 */4 * * *", arg_name="timer", run_on_startup=True, use_monitor=True)
 def MetAdeemy(timer: func.TimerRequest) -> None:
     logging.info("Timer trigger function ran at %s", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
