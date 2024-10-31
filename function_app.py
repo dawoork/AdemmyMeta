@@ -39,11 +39,11 @@ def MetAdeemy(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(f"Error al obtener datos de Meta API: {e}", status_code=500)
     
     # Extraer y formatear datos de `actions`, y obtener solo el valor de "lead"
-    for entry in data.get("data", []):
-        actions = entry.get("actions", [])
-        lead_value = next((action["value"] for action in actions if action["action_type"] == "lead"), "0")
-        
-        # Añadir "lead" como un campo
+    for campaign_data in data.get("data", []):
+        for insight_data in campaign_data.get("insights", {}).get("data", []):
+            actions = insight_data.get("actions", [])
+            lead_value = next((action["value"] for action in actions if action["action_type"] == "lead"), "0")
+            insight_data["lead"] = lead_value  # Agregar "lead" al diccionario de insights
 
     # Serializar los datos a JSON
     json_data = json.dumps(data)
@@ -54,7 +54,7 @@ def MetAdeemy(req: func.HttpRequest) -> func.HttpResponse:
         container_client = blob_service_client.get_container_client(BLOB_CONTAINER_NAME)
 
         # Crear un nombre único para el archivo blob
-        blob_name = f"meta_metrics_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+        blob_name = "meta_metrics_data.json"
         blob_client = container_client.get_blob_client(blob_name)
 
         # Subir los datos al blob
