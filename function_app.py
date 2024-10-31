@@ -1,9 +1,8 @@
 import azure.functions as func
 import logging
-
 import requests
 import json
-from datetime import datetime 
+from datetime import datetime
 from azure.storage.blob import BlobServiceClient
 import os
 
@@ -16,38 +15,40 @@ AD_ACCOUNT_ID = os.getenv("AD_ACCOUNT_ID")
 BLOB_CONNECTION_STRING = os.getenv("BLOB_CONNECTION_STRING")
 BLOB_CONTAINER_NAME = os.getenv("BLOB_CONTAINER_NAME")
 
-@app.route(route="MetAdeemy")
-def MetAdeemy(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info('Python HTTP trigger function processed a request.')
+@app.function_name(name="MetAdeemyTimer")
+@app.schedule(schedule="0 0 */12 * * *", arg_name="timer", run_on_startup=True, use_monitor=True)
+def MetAdeemy(timer: func.TimerRequest) -> None:
+    logging.info("Timer trigger function ran at %s", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     # Definición de métricas y configuración de la solicitud a Meta API
-    metrics = ["reach", "impressions", "spend", "clicks", "cpc", "cpm", "conversions", "ctr", "cpp", "actions"]
     url = f"https://graph.facebook.com/v17.0/act_{AD_ACCOUNT_ID}/campaigns"
     params = {
         "access_token": ACCESS_TOKEN,
         "fields": "id,insights{reach,impressions,spend,clicks,cpc,cpm,conversions,ctr,cpp,actions}",
         "time_range": json.dumps({
-        "since": "2024-10-01",
-        "until": datetime.today().strftime('%Y-%m-%d')
-    })
-}
+            "since": "2024-10-01",
+            "until": datetime.today().strftime('%Y-%m-%d')
+        })
+    }
 
     # Realizar la solicitud a la API de Meta
     try:
         response = requests.get(url, params=params)
         response.raise_for_status()
         data = response.json()  # Parseo de la respuesta JSON
+        logging.info("Datos obtenidos de Meta API exitosamente.")
     except requests.exceptions.RequestException as e:
         logging.error(f"Error al obtener datos de Meta API: {e}")
-        return func.HttpResponse(f"Error al obtener datos de Meta API: {e}", status_code=500)
-    
+        return  # Termina la ejecución si hay error en la solicitud
+
     # Extraer y formatear datos de `actions`, y obtener solo el valor de "lead"
     for campaign_data in data.get("data", []):
-        for insight_data in campaign_data.get("insights", {}).get("data", []):
+        insights = campaign_data.get("insights", {}).get("data", [])
+        for insight_data in insights:
             actions = insight_data.get("actions", [])
             lead_value = next((action["value"] for action in actions if action["action_type"] == "lead"), "0")
             insight_data["lead"] = lead_value  # Agregar "lead" al diccionario de insights
-
+    
     # Serializar los datos a JSON
     json_data = json.dumps(data)
 
@@ -63,9 +64,5 @@ def MetAdeemy(req: func.HttpRequest) -> func.HttpResponse:
         # Subir los datos al blob
         blob_client.upload_blob(json_data, overwrite=True)
         logging.info(f"Métricas guardadas exitosamente en {blob_name}")
-
-        # Respuesta de éxito
-        return func.HttpResponse(f"Métricas extraídas y guardadas exitosamente en Blob Storage: {blob_name}", status_code=200)
     except Exception as e:
         logging.error(f"Error al subir datos a Blob Storage: {e}")
-        return func.HttpResponse(f"Error al subir datos a Blob Storage: {e}", status_code=500)
