@@ -26,8 +26,11 @@ def MetAdeemy(req: func.HttpRequest) -> func.HttpResponse:
     params = {
         "access_token": ACCESS_TOKEN,
         "fields": "id,insights{reach,impressions,spend,clicks,cpc,cpm,conversions,ctr,cpp,actions}",
-        "date_preset": "last_30d"  # Rango de fechas (puede ser personalizado)
-    }
+        "time_range": json.dumps({
+        "since": "2024-10-01",
+        "until": datetime.today().strftime('%Y-%m-%d')
+    })
+}
 
     # Realizar la solicitud a la API de Meta
     try:
